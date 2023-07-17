@@ -4,16 +4,16 @@ import { buildGraph } from "./stitchMesh";
 
 const PARAMS = {
   // size
-  width: 24,
-  height: 20,
+  width: 30,
+  height: 30,
 
   iterations: 3,
-  edge_length: 30,
+  edge_length: 20,
 
   // Charge
   enableCharge: true,
-  chargeStrength: -200,
-  maxChargeDistance: 50,
+  chargeStrength: -100,
+  maxChargeDistance: 100,
 
   // Vertex Collision
   enableCollision: true,
