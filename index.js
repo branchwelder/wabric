@@ -377,8 +377,6 @@ function refreshForces() {
   simulation.alpha(0.4);
 }
 
-// Add a line for each link, and a circle for each vertex.
-
 function drawVertices() {
   if (PARAMS.showVertices) {
     // Create circles for all vertices
@@ -395,9 +393,9 @@ function drawVertices() {
     vertex.call(
       d3
         .drag()
-        .on("start", vertexDragStarted)
-        .on("drag", vertexDragged)
-        .on("end", vertexDragEnded)
+        .on("start", (e) => dragStart(e, "vertex"))
+        .on("drag", (e) => dragged(e, "vertex"))
+        .on("end", (e) => dragEnd(e, "vertex"))
     );
   } else {
     // Remove SVG elements
@@ -419,9 +417,9 @@ function drawFaces() {
     face.call(
       d3
         .drag()
-        .on("start", faceDragStart)
-        .on("drag", faceDragged)
-        .on("end", faceDragEnded)
+        .on("start", (e) => dragStart(e, "face"))
+        .on("drag", (e) => dragged(e, "face"))
+        .on("end", (e) => dragEnd(e, "face"))
     );
   } else {
     d3.selectAll(".faces").remove();
@@ -440,6 +438,14 @@ function drawStretch() {
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.stretchColor)
       .attr("stroke-width", PARAMS.forceStrokeWidth);
+
+    stretch.call(
+      d3
+        .drag()
+        .on("start", (e) => dragStart(e, "link"))
+        .on("drag", (e) => dragged(e, "link"))
+        .on("end", (e) => dragEnd(e, "link"))
+    );
   } else {
     d3.selectAll(".stretch").remove();
   }
@@ -457,6 +463,14 @@ function drawShear() {
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.shearColor)
       .attr("stroke-width", PARAMS.forceStrokeWidth);
+
+    shear.call(
+      d3
+        .drag()
+        .on("start", (e) => dragStart(e, "link"))
+        .on("drag", (e) => dragged(e, "link"))
+        .on("end", (e) => dragEnd(e, "link"))
+    );
   } else {
     d3.selectAll(".shear").remove();
   }
@@ -474,6 +488,14 @@ function drawStrut() {
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.strutColor)
       .attr("stroke-width", PARAMS.forceStrokeWidth);
+
+    strut.call(
+      d3
+        .drag()
+        .on("start", (e) => dragStart(e, "link"))
+        .on("drag", (e) => dragged(e, "link"))
+        .on("end", (e) => dragEnd(e, "link"))
+    );
   } else {
     d3.selectAll(".strut").remove();
   }
@@ -527,77 +549,71 @@ function ticked() {
 // DRAG EVENTS
 /////////////////////////////////////////////////////////////////
 
-// Reheat the simulation when drag starts, and fix the subject position.
-function faceDragStart(event) {
-  if (!event.active) simulation.alphaTarget(0.5).restart();
-
-  event.subject.vertices.forEach((vertexID) => {
-    const vert = vertices[vertexID];
-    vert.fx = vert.x;
-    vert.fy = vert.y;
-  });
-}
-
-// Update the subject (dragged vertex) position during drag.
-function faceDragged(event) {
-  event.subject.vertices.forEach((vertexID) => {
-    const vert = vertices[vertexID];
-    vert.fx += event.dx;
-    vert.fy += event.dy;
-  });
-}
-
-// Restore the target alpha so the simulation cools after dragging ends.
-// Unfix the subject position now that it’s no longer being dragged.
-function faceDragEnded(event) {
-  if (!event.active) simulation.alphaTarget(0);
-  event.subject.vertices.forEach((vertexID) => {
-    const vert = vertices[vertexID];
-    vert.fx = null;
-    vert.fy = null;
-  });
-}
-
-// Reheat the simulation when drag starts, and fix the subject position.
-function vertexDragStarted(event) {
+function dragStart(event, dragType) {
+  // Reheat the simulation when drag starts
   if (!event.active) simulation.alphaTarget(0.3).restart();
-  event.subject.fx = event.subject.x;
-  event.subject.fy = event.subject.y;
+  let subj = event.subject;
+
+  if (dragType == "face") {
+    // Fix all vertices
+    subj.vertices.forEach((vertexID) => {
+      const vert = vertices[vertexID];
+      vert.fx = vert.x;
+      vert.fy = vert.y;
+    });
+  } else if (dragType == "vertex") {
+    subj.fx = subj.x;
+    subj.fy = subj.y;
+  } else if (dragType == "link") {
+    subj.source.fx = subj.source.x;
+    subj.source.fy = subj.source.y;
+    subj.target.fx = subj.target.x;
+    subj.target.fy = subj.target.y;
+  }
 }
 
-// Update the subject (dragged node) position during drag.
-function vertexDragged(event) {
-  event.subject.fx = event.x;
-  event.subject.fy = event.y;
+function dragged(event, dragType) {
+  let subj = event.subject;
+
+  if (dragType == "face") {
+    // Update all vertices
+    subj.vertices.forEach((vertexID) => {
+      const vert = vertices[vertexID];
+      vert.fx += event.dx;
+      vert.fy += event.dy;
+    });
+  } else if (dragType == "vertex") {
+    subj.fx = event.x;
+    subj.fy = event.y;
+  } else if (dragType == "link") {
+    subj.source.fx += event.dx;
+    subj.source.fy += event.dy;
+    subj.target.fx += event.dx;
+    subj.target.fy += event.dy;
+  }
 }
 
-// Restore the target alpha so the simulation cools after dragging ends.
-// Unfix the subject position now that it’s no longer being dragged.
-function vertexDragEnded(event) {
+function dragEnd(event, dragType) {
+  // Restore the target alpha so the simulation cools after dragging ends.
   if (!event.active) simulation.alphaTarget(0);
-  event.subject.fx = null;
-  event.subject.fy = null;
-}
+  let subj = event.subject;
 
-// Reheat the simulation when drag starts, and fix the subject position.
-function linkDragStarted(event) {
-  if (!event.active) simulation.alphaTarget(0.3).restart();
-  event.subject.fx = event.subject.x;
-  event.subject.fy = event.subject.y;
-}
-
-// Update the subject (dragged node) position during drag.
-function linkDragged(event) {
-  event.subject.fx = event.x;
-  event.subject.fy = event.y;
-}
-
-// Restore the target alpha so the simulation cools after dragging ends.
-// Unfix the subject position now that it’s no longer being dragged.
-function linkDragEnded(event) {
-  if (!event.active) simulation.alphaTarget(0);
-  event.subject.fx = null;
-  event.subject.fy = null;
+  if (dragType == "face") {
+    // Unfix all vertices
+    subj.vertices.forEach((vertexID) => {
+      const vert = vertices[vertexID];
+      vert.fx = null;
+      vert.fy = null;
+    });
+  } else if (dragType == "vertex") {
+    subj.fx = null;
+    subj.fy = null;
+  } else if (dragType == "link") {
+    subj.source.fx = null;
+    subj.source.fy = null;
+    subj.target.fx = null;
+    subj.target.fy = null;
+  }
 }
 
 /////////////////////////////////////////////////////////////////
@@ -610,7 +626,8 @@ function setBackground() {
 
 function fitEdgeLength() {
   PARAMS.edge_length =
-    Math.min(viewHeight, viewWidth) / Math.min(PARAMS.width, PARAMS.height);
+    (0.7 * Math.min(viewHeight, viewWidth)) /
+    Math.min(PARAMS.width, PARAMS.height);
 }
 
 function runSimulation() {
@@ -618,6 +635,7 @@ function runSimulation() {
   if (simulation) {
     simulation.stop();
     simulation = null;
+    svg.selectChildren().remove();
   }
 
   fitEdgeLength();

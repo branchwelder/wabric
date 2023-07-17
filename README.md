@@ -7,7 +7,8 @@ abusing d3 force layout
 - [x] drag faces/vertices
 - [x] control panel
 - [x] size based on viewport
-- [ ] drag links
+- [x] mobile
+- [x] drag links
 - [ ] save/load presets
+- [ ] initial charge to help unfold
 - [ ] anchor vertices/faces
-- [ ] mobile
