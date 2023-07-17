@@ -1,22 +1,23 @@
 import * as d3 from "d3";
 import { Pane } from "tweakpane";
-import { buildGraph } from "./stitchMesh";
+import { buildGraph } from "./wabricGraph";
+
+const svg = d3.select("svg");
+let simulation;
+
+// Graph data
+let faces, vertices, stretchLinks, shearLinks, strutLinks;
+
+// SVG elements
+let stretch, shear, strut, face, vertex;
+
+let viewWidth = window.innerWidth;
+let viewHeight = window.innerHeight;
 
 const PARAMS = {
-  // size
-  width: 30,
-  height: 30,
-
-  iterations: 3,
-  edge_length: 20,
-
-  // Charge
-  enableCharge: true,
-  chargeStrength: -100,
-  maxChargeDistance: 100,
-
-  // Vertex Collision
-  enableCollision: true,
+  // Base
+  width: 20,
+  height: 20,
 
   // Shear
   enableShear: true,
@@ -26,109 +27,297 @@ const PARAMS = {
   // Stretch
   enableStretch: true,
   K_STRETCH: 2.5,
+  edge_length: 20,
 
   // Strut
   enableStrut: true,
   K_STRUT: 2.5,
 
+  // Charge
+  enableCharge: true,
+  chargeStrength: -25,
+  maxChargeDistance: 0.5,
+
   // Viz
   showFaces: true,
   showVertices: false,
-  faceColor: "#25696f",
-  vertexColor: "#163638",
-  faceOpacity: 0.32,
+
+  backgroundColor: "#192d3a",
+
+  faceColor: "#327aa87c",
+  vertexColor: "#16363867",
+  vertexRadius: 3,
+
   showStretch: true,
+  stretchColor: "#3078a67c",
   showStrut: false,
+  strutColor: "#b062a57c",
   showShear: false,
+  shearColor: "#3a7d227c",
+  forceStrokeWidth: 1,
+
+  // Advanced
+  enableCollision: false,
+  iterations: 3,
 };
 
-const pane = new Pane();
+/////////////////////////////////////////////////////////////////
+// PARAMETERS
+/////////////////////////////////////////////////////////////////
+
+const pane = new Pane({
+  title: "Wabric",
+});
+
+const preset = pane.exportPreset();
+
 pane
   .addInput(PARAMS, "width", {
-    format: (v) => parseInt(v),
+    min: 5,
+    step: 1,
   })
   .on("change", runSimulation);
 
 pane
   .addInput(PARAMS, "height", {
-    format: (v) => parseInt(v),
+    min: 5,
+    step: 1,
   })
   .on("change", runSimulation);
 
-pane
-  .addInput(PARAMS, "iterations", { min: 1, max: 15, step: 1 })
-  .on("change", addForces);
+// const presets = pane.addFolder({ title: "presets" });
 
-// Edge Length
-const edgeLen = pane.addInput(PARAMS, "edge_length", {
-  min: 10,
-  max: 200,
-  step: 1,
+/////////////////////////////////////////////////////////////////
+// Forces
+/////////////////////////////////////////////////////////////////
+
+const forceSettings = pane.addFolder({
+  title: "Forces",
 });
-edgeLen.on("change", addForces);
 
-// STRETCH SETTINGS
-const chargeSettings = pane.addFolder({
-  title: "Charge Forces",
-});
-chargeSettings.addInput(PARAMS, "enableCharge").on("change", addForces);
-chargeSettings
-  .addInput(PARAMS, "chargeStrength", { min: -1000, max: 0, step: 5 })
-  .on("change", addForces);
-chargeSettings
-  .addInput(PARAMS, "maxChargeDistance", { min: 0, max: 1000, step: 5 })
-  .on("change", addForces);
+// Stretch
+forceSettings
+  .addInput(PARAMS, "enableStretch", {
+    label: "Stretch Forces",
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "edge_length", {
+    label: "Edge Length",
+    min: 10,
+    max: 200,
+    step: 1,
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "K_STRETCH", {
+    label: "K_stretch",
+  })
+  .on("change", refreshForces);
+forceSettings.addSeparator();
 
-// Collision SETTINGS
-const collisionSettings = pane.addFolder({
-  title: "Collision Forces",
-});
-collisionSettings.addInput(PARAMS, "enableCollision").on("change", addForces);
+// Shear
+forceSettings
+  .addInput(PARAMS, "enableShear", {
+    label: "Shear Forces",
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "shear_ratio", {
+    label: "Shear Ratio",
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "K_SHEAR", {
+    label: "K_shear",
+  })
+  .on("change", refreshForces);
+forceSettings.addSeparator();
 
-// STRETCH SETTINGS
-const stretchSettings = pane.addFolder({
-  title: "Stretch Forces",
-});
-stretchSettings.addInput(PARAMS, "enableStretch").on("change", addForces);
-stretchSettings.addInput(PARAMS, "K_STRETCH").on("change", addForces);
+// Strut
+forceSettings
+  .addInput(PARAMS, "enableStrut", {
+    label: "Strut Forces",
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "K_STRUT", {
+    label: "K_strut",
+  })
+  .on("change", refreshForces);
+forceSettings.addSeparator();
 
-// SHEAR SETTINGS
-const shearSettings = pane.addFolder({
-  title: "Shear Forces",
-});
-shearSettings.addInput(PARAMS, "enableShear").on("change", addForces);
-shearSettings.addInput(PARAMS, "shear_ratio").on("change", addForces);
-shearSettings.addInput(PARAMS, "K_SHEAR").on("change", addForces);
+// Charge
+forceSettings
+  .addInput(PARAMS, "enableCharge", {
+    label: "Charge",
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "chargeStrength", {
+    label: "Charge Strength",
+    min: -1000,
+    max: 0,
+    step: 5,
+  })
+  .on("change", refreshForces);
+forceSettings
+  .addInput(PARAMS, "maxChargeDistance", {
+    label: "Max Charge Distance",
+    min: 0,
+    max: 10,
+    step: 0.1,
+  })
+  .on("change", refreshForces);
 
-// STRUT SETTINGS
-const strutSettings = pane.addFolder({
-  title: "Strut Forces",
-});
-strutSettings.addInput(PARAMS, "enableStrut").on("change", addForces);
-strutSettings.addInput(PARAMS, "K_STRUT").on("change", addForces);
-
-// STRUT SETTINGS
+/////////////////////////////////////////////////////////////////
+// VIZ SETTINGS
+/////////////////////////////////////////////////////////////////
 const vizSettings = pane.addFolder({
   title: "Viz",
 });
-vizSettings.addInput(PARAMS, "faceColor").on("change", startViz);
-vizSettings.addInput(PARAMS, "vertexColor").on("change", startViz);
+
 vizSettings
-  .addInput(PARAMS, "faceOpacity", { min: 0, max: 1, step: 0.01 })
-  .on("change", startViz);
-vizSettings.addInput(PARAMS, "showFaces").on("change", startViz);
-vizSettings.addInput(PARAMS, "showVertices").on("change", startViz);
-vizSettings.addInput(PARAMS, "showStrut").on("change", startViz);
-vizSettings.addInput(PARAMS, "showStretch").on("change", startViz);
-vizSettings.addInput(PARAMS, "showShear").on("change", startViz);
+  .addInput(PARAMS, "backgroundColor", {
+    label: "Background Color",
+  })
+  .on("change", setBackground);
 
-// SIMULATION
-const svg = d3.select("svg");
-let width = window.innerWidth;
-let height = window.innerHeight;
+vizSettings
+  .addInput(PARAMS, "showFaces", {
+    label: "Draw Faces",
+  })
+  .on("change", () => {
+    drawFaces();
+    ticked();
+  });
+vizSettings
+  .addInput(PARAMS, "faceColor", {
+    label: "Face Color",
+  })
+  .on("change", () => face.attr("fill", PARAMS.faceColor));
 
-let stitches, vertices, stretchLinks, shearLinks, strutLinks;
-let simulation;
+vizSettings.addSeparator();
+
+vizSettings
+  .addInput(PARAMS, "showVertices", {
+    label: "Draw Vertices",
+  })
+  .on("change", () => {
+    drawVertices();
+    ticked();
+  });
+vizSettings
+  .addInput(PARAMS, "vertexColor", {
+    label: "Vertex Color",
+  })
+  .on("change", () => vertex.attr("fill", PARAMS.vertexColor));
+vizSettings
+  .addInput(PARAMS, "vertexRadius", {
+    label: "Vertex Radius",
+    min: 2,
+    max: 30,
+    step: 1,
+  })
+  .on("change", () => vertex.attr("r", PARAMS.vertexRadius));
+
+vizSettings.addSeparator();
+
+vizSettings
+  .addInput(PARAMS, "showStretch", {
+    label: "Draw Stretch",
+  })
+  .on("change", () => {
+    drawStretch();
+    ticked();
+  });
+vizSettings
+  .addInput(PARAMS, "stretchColor", {
+    label: "Stretch Color",
+  })
+  .on("change", () => stretch.attr("stroke", PARAMS.stretchColor));
+vizSettings
+  .addInput(PARAMS, "showShear", {
+    label: "Draw Shear",
+  })
+  .on("change", () => {
+    drawShear();
+    ticked();
+  });
+vizSettings
+  .addInput(PARAMS, "shearColor", {
+    label: "Shear Color",
+  })
+  .on("change", () => shear.attr("stroke", PARAMS.shearColor));
+vizSettings
+  .addInput(PARAMS, "showStrut", {
+    label: "Draw Strut",
+  })
+  .on("change", () => {
+    drawStrut();
+    ticked();
+  });
+vizSettings
+  .addInput(PARAMS, "strutColor", {
+    label: "Strut Color",
+  })
+  .on("change", () => strut.attr("stroke", PARAMS.strutColor));
+vizSettings
+  .addInput(PARAMS, "forceStrokeWidth", {
+    label: "Link Stroke Width",
+    min: 1,
+    max: 30,
+    step: 1,
+  })
+  .on("change", () => {
+    if (stretch) stretch.attr("stroke-width", PARAMS.forceStrokeWidth);
+    if (shear) shear.attr("stroke-width", PARAMS.forceStrokeWidth);
+    if (strut) strut.attr("stroke-width", PARAMS.forceStrokeWidth);
+  });
+
+// check for common mobile user agents
+if (
+  navigator.userAgent.match(/Android/i) ||
+  navigator.userAgent.match(/webOS/i) ||
+  navigator.userAgent.match(/iPhone/i) ||
+  navigator.userAgent.match(/iPad/i) ||
+  navigator.userAgent.match(/iPod/i) ||
+  navigator.userAgent.match(/BlackBerry/i) ||
+  navigator.userAgent.match(/Windows Phone/i)
+) {
+  pane.expanded = false;
+  forceSettings.expanded = false;
+  vizSettings.expanded = false;
+}
+
+/////////////////////////////////////////////////////////////////
+// ADVANCED
+/////////////////////////////////////////////////////////////////
+
+const advanced = pane.addFolder({
+  title: "Advanced",
+  expanded: false,
+});
+
+advanced
+  .addInput(PARAMS, "enableCollision", { label: "Vertex Collision" })
+  .on("change", refreshForces);
+advanced
+  .addInput(PARAMS, "iterations", {
+    label: "Iterations",
+    min: 1,
+    max: 15,
+    step: 1,
+  })
+  .on("change", refreshForces);
+
+/////////////////////////////////////////////////////////////////
+// INIT VARS
+/////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////
+// Forces
+/////////////////////////////////////////////////////////////////
 
 function strutForce(links) {
   return d3
@@ -157,66 +346,89 @@ function stretchForce(links) {
 }
 
 function centerForce() {
-  return d3.forceCenter(width / 2, height / 2);
+  return d3.forceCenter(viewWidth / 2, viewHeight / 2);
 }
 
 function chargeForce() {
   return d3
     .forceManyBody()
     .strength(PARAMS.chargeStrength)
-    .distanceMax(PARAMS.maxChargeDistance);
+    .distanceMax(PARAMS.maxChargeDistance * PARAMS.edge_length);
 }
 
 function collideForce() {
-  return d3.forceCollide().radius(3);
+  return d3.forceCollide().radius(PARAMS.vertexRadius);
 }
 
-function addForces() {
+function refreshForces() {
+  // Check whether each force is enabled and recreate it (or assign it to null)
   simulation.force("strut", PARAMS.enableStrut ? strutForce(strutLinks) : null);
   simulation.force("shear", PARAMS.enableShear ? shearForce(shearLinks) : null);
   simulation.force(
     "stretch",
     PARAMS.enableStretch ? stretchForce(stretchLinks) : null
   );
-
   simulation.force("charge", PARAMS.enableCharge ? chargeForce() : null);
   simulation.force("collision", PARAMS.enableCollision ? collideForce() : null);
+
+  // Restart simulation and set alpha (otherwise, if the simulation is already
+  // "cool" it won't update when settings change until there is user input)
   simulation.restart();
   simulation.alpha(0.4);
 }
 
-function runSimulation() {
-  if (simulation) simulation.stop();
-  simulation = null;
-  ({ stitches, vertices, stretchLinks, shearLinks, strutLinks } = buildGraph(
-    PARAMS.width,
-    PARAMS.height
-  ));
-  simulation = d3
-    .forceSimulation(vertices)
-    .force("center", centerForce())
-    .on("tick", ticked);
-  addForces();
-  startViz();
-}
-
-function getFacePoints(stitch) {
-  return stitch.vertices.reduce(
-    (str, vertexID) => `${str} ${vertices[vertexID].x},${vertices[vertexID].y}`,
-    ""
-  );
-}
-
 // Add a line for each link, and a circle for each vertex.
-let stretch, shear, strut, stitchFace, vertex;
 
-function startViz() {
-  d3.selectAll(".stretch").remove();
-  d3.selectAll(".shear").remove();
-  d3.selectAll(".strut").remove();
-  d3.selectAll(".stitchface").remove();
-  d3.selectAll(".vertices").remove();
+function drawVertices() {
+  if (PARAMS.showVertices) {
+    // Create circles for all vertices
+    vertex = svg
+      .append("g")
+      .attr("class", "vertices")
+      .selectAll()
+      .data(vertices)
+      .join("circle")
+      .attr("r", PARAMS.vertexRadius)
+      .attr("fill", PARAMS.vertexColor);
 
+    // Attatch drag handlers
+    vertex.call(
+      d3
+        .drag()
+        .on("start", vertexDragStarted)
+        .on("drag", vertexDragged)
+        .on("end", vertexDragEnded)
+    );
+  } else {
+    // Remove SVG elements
+    d3.selectAll(".vertices").remove();
+  }
+}
+
+function drawFaces() {
+  if (PARAMS.showFaces) {
+    // Create polygons for all faces
+    face = svg
+      .append("g")
+      .attr("class", "faces")
+      .selectAll()
+      .data(faces)
+      .join("polygon")
+      .attr("fill", PARAMS.faceColor);
+
+    face.call(
+      d3
+        .drag()
+        .on("start", faceDragStart)
+        .on("drag", faceDragged)
+        .on("end", faceDragEnded)
+    );
+  } else {
+    d3.selectAll(".faces").remove();
+  }
+}
+
+function drawStretch() {
   if (PARAMS.showStretch) {
     stretch = svg
       .append("g")
@@ -224,8 +436,16 @@ function startViz() {
       .selectAll("line")
       .data(stretchLinks)
       .enter()
-      .append("line");
+      .append("line")
+      .attr("stroke-linecap", "round")
+      .attr("stroke", PARAMS.stretchColor)
+      .attr("stroke-width", PARAMS.forceStrokeWidth);
+  } else {
+    d3.selectAll(".stretch").remove();
   }
+}
+
+function drawShear() {
   if (PARAMS.showShear) {
     shear = svg
       .append("g")
@@ -234,9 +454,15 @@ function startViz() {
       .data(shearLinks)
       .enter()
       .append("line")
-      .attr("stroke-width", 2);
+      .attr("stroke-linecap", "round")
+      .attr("stroke", PARAMS.shearColor)
+      .attr("stroke-width", PARAMS.forceStrokeWidth);
+  } else {
+    d3.selectAll(".shear").remove();
   }
+}
 
+function drawStrut() {
   if (PARAMS.showStrut) {
     strut = svg
       .append("g")
@@ -245,53 +471,18 @@ function startViz() {
       .data(strutLinks)
       .enter()
       .append("line")
-      .attr("stroke-width", 2);
+      .attr("stroke-linecap", "round")
+      .attr("stroke", PARAMS.strutColor)
+      .attr("stroke-width", PARAMS.forceStrokeWidth);
+  } else {
+    d3.selectAll(".strut").remove();
   }
-
-  if (PARAMS.showFaces) {
-    stitchFace = svg
-      .append("g")
-      .attr("class", "stitchface")
-      .selectAll()
-      .data(stitches)
-      .join("polygon")
-      .attr("fill", PARAMS.faceColor)
-      .attr("opacity", PARAMS.faceOpacity);
-  }
-
-  if (PARAMS.showVertices) {
-    vertex = svg
-      .append("g")
-      .attr("class", "vertices")
-      .selectAll()
-      .data(vertices)
-      .join("circle")
-      .attr("r", 3)
-      .attr("fill", PARAMS.vertexColor);
-  }
-
-  if (vertex)
-    vertex.call(
-      d3
-        .drag()
-        .on("start", vertexDragStarted)
-        .on("drag", vertexDragged)
-        .on("end", vertexDragEnded)
-    );
-
-  if (stitchFace)
-    stitchFace.call(
-      d3
-        .drag()
-        .on("start", faceDragStart)
-        .on("drag", faceDragged)
-        .on("end", faceDragEnded)
-    );
-  ticked();
 }
 
-// Set the position attributes of links and vertices each time the simulation ticks.
+// Set the position attributes of links and vertices each time the simulation ticks
+// Uses updated vertex positions to draw polygons for the faces.
 function ticked() {
+  // Only updates the position attributes for elements if they are shown
   if (PARAMS.showStretch) {
     stretch
       .attr("x1", (d) => d.source.x)
@@ -321,9 +512,20 @@ function ticked() {
   }
 
   if (PARAMS.showFaces) {
-    stitchFace.attr("points", (d) => getFacePoints(d));
+    // makes a string with the points for drawing the face polygon
+    face.attr("points", (d) =>
+      d.vertices.reduce(
+        (str, vertexID) =>
+          `${str} ${vertices[vertexID].x},${vertices[vertexID].y}`,
+        ""
+      )
+    );
   }
 }
+
+/////////////////////////////////////////////////////////////////
+// DRAG EVENTS
+/////////////////////////////////////////////////////////////////
 
 // Reheat the simulation when drag starts, and fix the subject position.
 function faceDragStart(event) {
@@ -377,4 +579,70 @@ function vertexDragEnded(event) {
   event.subject.fy = null;
 }
 
-runSimulation();
+// Reheat the simulation when drag starts, and fix the subject position.
+function linkDragStarted(event) {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  event.subject.fx = event.subject.x;
+  event.subject.fy = event.subject.y;
+}
+
+// Update the subject (dragged node) position during drag.
+function linkDragged(event) {
+  event.subject.fx = event.x;
+  event.subject.fy = event.y;
+}
+
+// Restore the target alpha so the simulation cools after dragging ends.
+// Unfix the subject position now that it’s no longer being dragged.
+function linkDragEnded(event) {
+  if (!event.active) simulation.alphaTarget(0);
+  event.subject.fx = null;
+  event.subject.fy = null;
+}
+
+/////////////////////////////////////////////////////////////////
+// RUN SIMULATION
+/////////////////////////////////////////////////////////////////
+
+function setBackground() {
+  document.body.style.backgroundColor = PARAMS.backgroundColor;
+}
+
+function fitEdgeLength() {
+  PARAMS.edge_length =
+    Math.min(viewHeight, viewWidth) / Math.min(PARAMS.width, PARAMS.height);
+}
+
+function runSimulation() {
+  // If there is an existing simulation, stop it and set to null
+  if (simulation) {
+    simulation.stop();
+    simulation = null;
+  }
+
+  fitEdgeLength();
+
+  ({ faces, vertices, stretchLinks, shearLinks, strutLinks } = buildGraph(
+    PARAMS.width,
+    PARAMS.height
+  ));
+
+  simulation = d3
+    .forceSimulation(vertices)
+    .force("center", centerForce())
+    .on("tick", ticked);
+
+  setBackground();
+  drawShear();
+  drawStrut();
+  drawStretch();
+  drawFaces();
+  drawVertices();
+
+  refreshForces();
+  pane.refresh();
+}
+
+window.onload = () => {
+  runSimulation();
+};

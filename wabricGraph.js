@@ -5,12 +5,12 @@ export function buildGraph(w, h) {
     index: i,
   }));
 
-  const stitches = [];
+  const faces = [];
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      stitches.push({
+      faces.push({
         index: i,
         vertices: [i + y, i + y + 1, i + y + w + 2, i + y + w + 1],
       });
@@ -87,7 +87,7 @@ export function buildGraph(w, h) {
   }
 
   return {
-    stitches,
+    faces,
     vertices,
     strutLinks,
     shearLinks,
