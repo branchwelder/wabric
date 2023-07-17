@@ -2,7 +2,7 @@
 
 abusing d3 force layout
 
-live [here](twigg.gg/wabric)
+live [here](https://twigg.gg/wabric)
 
 ## todo
 
