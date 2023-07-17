@@ -1,11 +1,3 @@
-# stitchsim
+# wabric
 
-exploring lightweight knit stitch simulation for charted knitting patterns
-
-## todo
-
-- [ ] pattern editor
-- [ ] pattern download
-- [ ] draw yarns on stitch mesh
-- [ ] dedicated stitch mesh data structure
-- [ ] add tuck faces
+abusing d3 force layout
