@@ -2,6 +2,8 @@
 
 abusing d3 force layout
 
+live [here](twigg.gg/wabric)
+
 ## todo
 
 - [x] drag faces/vertices
@@ -9,6 +11,6 @@ abusing d3 force layout
 - [x] size based on viewport
 - [x] mobile
 - [x] drag links
-- [ ] save/load presets
-- [ ] initial charge to help unfold
+- [x] save/load presets
+- [x] initial charge to help unfold
 - [ ] anchor vertices/faces

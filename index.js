@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import { Pane } from "tweakpane";
 import { buildGraph } from "./wabricGraph";
+import presets from "./presets";
 
 const svg = d3.select("svg");
 let simulation;
@@ -14,6 +15,8 @@ let stretch, shear, strut, face, vertex;
 let viewWidth = window.innerWidth;
 let viewHeight = window.innerHeight;
 
+let paused = false;
+
 const PARAMS = {
   // Base
   width: 20,
@@ -26,7 +29,7 @@ const PARAMS = {
 
   // Stretch
   enableStretch: true,
-  K_STRETCH: 2.5,
+  K_STRETCH: 4.0,
   edge_length: 20,
 
   // Strut
@@ -69,23 +72,43 @@ const pane = new Pane({
   title: "Wabric",
 });
 
-const preset = pane.exportPreset();
+pane
+  .addBlade({
+    view: "list",
+    label: "Load Preset",
+    options: Object.keys(presets).map((presetName) => {
+      return {
+        value: presetName,
+        text: presetName,
+      };
+    }),
+    value: Object.keys(presets)[0],
+  })
+  .on("change", (e) => {
+    //
+    paused = true;
+    cleanUp();
+    Object.entries(presets[e.value]).forEach(
+      ([param, val]) => (PARAMS[param] = val)
+    );
+    pane.refresh();
+    paused = false;
+    runSimulation();
+  });
 
 pane
   .addInput(PARAMS, "width", {
-    min: 5,
+    min: 1,
     step: 1,
   })
   .on("change", runSimulation);
 
 pane
   .addInput(PARAMS, "height", {
-    min: 5,
+    min: 1,
     step: 1,
   })
   .on("change", runSimulation);
-
-// const presets = pane.addFolder({ title: "presets" });
 
 /////////////////////////////////////////////////////////////////
 // Forces
@@ -195,7 +218,9 @@ vizSettings
   .addInput(PARAMS, "faceColor", {
     label: "Face Color",
   })
-  .on("change", () => face.attr("fill", PARAMS.faceColor));
+  .on("change", () => {
+    if (face) face.attr("fill", PARAMS.faceColor);
+  });
 
 vizSettings.addSeparator();
 
@@ -211,7 +236,9 @@ vizSettings
   .addInput(PARAMS, "vertexColor", {
     label: "Vertex Color",
   })
-  .on("change", () => vertex.attr("fill", PARAMS.vertexColor));
+  .on("change", () => {
+    if (vertex) vertex.attr("fill", PARAMS.vertexColor);
+  });
 vizSettings
   .addInput(PARAMS, "vertexRadius", {
     label: "Vertex Radius",
@@ -219,7 +246,9 @@ vizSettings
     max: 30,
     step: 1,
   })
-  .on("change", () => vertex.attr("r", PARAMS.vertexRadius));
+  .on("change", () => {
+    if (vertex) vertex.attr("r", PARAMS.vertexRadius);
+  });
 
 vizSettings.addSeparator();
 
@@ -235,7 +264,9 @@ vizSettings
   .addInput(PARAMS, "stretchColor", {
     label: "Stretch Color",
   })
-  .on("change", () => stretch.attr("stroke", PARAMS.stretchColor));
+  .on("change", () => {
+    if (stretch) stretch.attr("stroke", PARAMS.stretchColor);
+  });
 vizSettings
   .addInput(PARAMS, "showShear", {
     label: "Draw Shear",
@@ -248,7 +279,9 @@ vizSettings
   .addInput(PARAMS, "shearColor", {
     label: "Shear Color",
   })
-  .on("change", () => shear.attr("stroke", PARAMS.shearColor));
+  .on("change", () => {
+    if (shear) shear.attr("stroke", PARAMS.shearColor);
+  });
 vizSettings
   .addInput(PARAMS, "showStrut", {
     label: "Draw Strut",
@@ -261,7 +294,9 @@ vizSettings
   .addInput(PARAMS, "strutColor", {
     label: "Strut Color",
   })
-  .on("change", () => strut.attr("stroke", PARAMS.strutColor));
+  .on("change", () => {
+    if (strut) strut.attr("stroke", PARAMS.strutColor);
+  });
 vizSettings
   .addInput(PARAMS, "forceStrokeWidth", {
     label: "Link Stroke Width",
@@ -311,6 +346,14 @@ advanced
   })
   .on("change", refreshForces);
 
+advanced
+  .addButton({
+    title: "Copy settings to clipboard",
+  })
+  .on("click", () => {
+    navigator.clipboard.writeText(JSON.stringify(pane.exportPreset()));
+  });
+
 /////////////////////////////////////////////////////////////////
 // INIT VARS
 /////////////////////////////////////////////////////////////////
@@ -345,8 +388,8 @@ function stretchForce(links) {
     .iterations(PARAMS.iterations);
 }
 
-function centerForce() {
-  return d3.forceCenter(viewWidth / 2, viewHeight / 2);
+function centerForce(strength) {
+  return d3.forceCenter(viewWidth / 2, viewHeight / 2).strength(strength ?? 1);
 }
 
 function chargeForce() {
@@ -360,7 +403,16 @@ function collideForce() {
   return d3.forceCollide().radius(PARAMS.vertexRadius);
 }
 
+function unfoldForce() {
+  return d3
+    .forceManyBody()
+    .strength(-150)
+    .distanceMax(5 * PARAMS.edge_length);
+}
+
 function refreshForces() {
+  if (paused) return;
+
   // Check whether each force is enabled and recreate it (or assign it to null)
   simulation.force("strut", PARAMS.enableStrut ? strutForce(strutLinks) : null);
   simulation.force("shear", PARAMS.enableShear ? shearForce(shearLinks) : null);
@@ -378,6 +430,8 @@ function refreshForces() {
 }
 
 function drawVertices() {
+  if (paused) return;
+
   if (PARAMS.showVertices) {
     // Create circles for all vertices
     vertex = svg
@@ -404,6 +458,8 @@ function drawVertices() {
 }
 
 function drawFaces() {
+  if (paused) return;
+
   if (PARAMS.showFaces) {
     // Create polygons for all faces
     face = svg
@@ -427,6 +483,8 @@ function drawFaces() {
 }
 
 function drawStretch() {
+  if (paused) return;
+
   if (PARAMS.showStretch) {
     stretch = svg
       .append("g")
@@ -452,6 +510,8 @@ function drawStretch() {
 }
 
 function drawShear() {
+  if (paused) return;
+
   if (PARAMS.showShear) {
     shear = svg
       .append("g")
@@ -477,6 +537,8 @@ function drawShear() {
 }
 
 function drawStrut() {
+  if (paused) return;
+
   if (PARAMS.showStrut) {
     strut = svg
       .append("g")
@@ -504,6 +566,7 @@ function drawStrut() {
 // Set the position attributes of links and vertices each time the simulation ticks
 // Uses updated vertex positions to draw polygons for the faces.
 function ticked() {
+  if (paused) return;
   // Only updates the position attributes for elements if they are shown
   if (PARAMS.showStretch) {
     stretch
@@ -552,6 +615,10 @@ function ticked() {
 function dragStart(event, dragType) {
   // Reheat the simulation when drag starts
   if (!event.active) simulation.alphaTarget(0.3).restart();
+
+  // don't center while dragging
+  simulation.force("center", null);
+
   let subj = event.subject;
 
   if (dragType == "face") {
@@ -596,6 +663,8 @@ function dragged(event, dragType) {
 function dragEnd(event, dragType) {
   // Restore the target alpha so the simulation cools after dragging ends.
   if (!event.active) simulation.alphaTarget(0);
+  // Re-add center force
+  simulation.force("center", centerForce(0.05));
   let subj = event.subject;
 
   if (dragType == "face") {
@@ -626,17 +695,30 @@ function setBackground() {
 
 function fitEdgeLength() {
   PARAMS.edge_length =
-    (0.7 * Math.min(viewHeight, viewWidth)) /
-    Math.min(PARAMS.width, PARAMS.height);
+    (0.9 * Math.min(viewHeight, viewWidth)) /
+    Math.max(PARAMS.width, PARAMS.height);
 }
 
-function runSimulation() {
+function unfold() {
+  simulation.force("unfold", unfoldForce());
+
+  setTimeout(() => {
+    simulation.force("unfold", null);
+  }, "300");
+}
+
+function cleanUp() {
   // If there is an existing simulation, stop it and set to null
   if (simulation) {
     simulation.stop();
     simulation = null;
-    svg.selectChildren().remove();
   }
+  svg.selectChildren().remove();
+}
+
+function runSimulation() {
+  if (paused) return;
+  cleanUp();
 
   fitEdgeLength();
 
@@ -647,18 +729,20 @@ function runSimulation() {
 
   simulation = d3
     .forceSimulation(vertices)
-    .force("center", centerForce())
+    .force("center", centerForce(1))
     .on("tick", ticked);
 
   setBackground();
+
+  drawFaces();
   drawShear();
   drawStrut();
   drawStretch();
-  drawFaces();
   drawVertices();
 
   refreshForces();
-  pane.refresh();
+
+  unfold();
 }
 
 window.onload = () => {

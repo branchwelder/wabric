@@ -33,7 +33,6 @@ export function buildGraph(w, h) {
         stretchLinks.push({
           source: indexAt(x - 1, y),
           target: indexAt(x, y),
-          linkType: "course",
         });
 
         // Diagonal shear links, top left to bottom right
@@ -41,7 +40,6 @@ export function buildGraph(w, h) {
           shearLinks.push({
             source: indexAt(x - 1, y),
             target: indexAt(x, y + 1),
-            linkType: "shear",
             stitch: indexAt(x, y) - (y + 1),
           });
         }
@@ -51,7 +49,6 @@ export function buildGraph(w, h) {
           shearLinks.push({
             source: indexAt(x, y),
             target: indexAt(x - 1, y + 1),
-            linkType: 2,
             stitch: indexAt(x, y) - (y + 1),
           });
         }
@@ -61,7 +58,6 @@ export function buildGraph(w, h) {
           strutLinks.push({
             source: indexAt(x - 1, y),
             target: indexAt(x + 1, y),
-            linkType: "strut",
           });
         }
       }
@@ -71,7 +67,6 @@ export function buildGraph(w, h) {
         stretchLinks.push({
           source: indexAt(x, y - 1),
           target: indexAt(x, y),
-          linkType: "wale",
         });
 
         if (y < verticesH - 1) {
@@ -79,7 +74,6 @@ export function buildGraph(w, h) {
           strutLinks.push({
             source: indexAt(x, y - 1),
             target: indexAt(x, y + 1),
-            linkType: "strut",
           });
         }
       }
