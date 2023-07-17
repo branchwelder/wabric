@@ -355,10 +355,6 @@ advanced
   });
 
 /////////////////////////////////////////////////////////////////
-// INIT VARS
-/////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////
 // Forces
 /////////////////////////////////////////////////////////////////
 
@@ -429,31 +425,36 @@ function refreshForces() {
   simulation.alpha(0.4);
 }
 
+// create groups for managing stacking order
+const faceContainer = svg.append("g").attr("class", "faces");
+const stretchContainer = svg.append("g").attr("class", "stretch");
+const shearContainer = svg.append("g").attr("class", "shear");
+const strutContainer = svg.append("g").attr("class", "strut");
+const vertexContainer = svg.append("g").attr("class", "vertices");
+
 function drawVertices() {
   if (paused) return;
 
   if (PARAMS.showVertices) {
     // Create circles for all vertices
-    vertex = svg
-      .append("g")
-      .attr("class", "vertices")
+    vertex = vertexContainer
       .selectAll()
       .data(vertices)
       .join("circle")
       .attr("r", PARAMS.vertexRadius)
-      .attr("fill", PARAMS.vertexColor);
-
-    // Attatch drag handlers
-    vertex.call(
-      d3
-        .drag()
-        .on("start", (e) => dragStart(e, "vertex"))
-        .on("drag", (e) => dragged(e, "vertex"))
-        .on("end", (e) => dragEnd(e, "vertex"))
-    );
+      .attr("fill", PARAMS.vertexColor)
+      .classed("fixed", (d) => d.fixed ?? false)
+      .call(
+        d3
+          .drag()
+          .on("start", (e) => dragStart(e, "vertex"))
+          .on("drag", (e) => dragged(e, "vertex"))
+          .on("end", (e) => dragEnd(e, "vertex"))
+      )
+      .on("click", clicked);
   } else {
     // Remove SVG elements
-    d3.selectAll(".vertices").remove();
+    d3.selectAll(".vertices").selectChildren().remove();
   }
 }
 
@@ -462,23 +463,20 @@ function drawFaces() {
 
   if (PARAMS.showFaces) {
     // Create polygons for all faces
-    face = svg
-      .append("g")
-      .attr("class", "faces")
+    face = faceContainer
       .selectAll()
       .data(faces)
       .join("polygon")
-      .attr("fill", PARAMS.faceColor);
-
-    face.call(
-      d3
-        .drag()
-        .on("start", (e) => dragStart(e, "face"))
-        .on("drag", (e) => dragged(e, "face"))
-        .on("end", (e) => dragEnd(e, "face"))
-    );
+      .attr("fill", PARAMS.faceColor)
+      .call(
+        d3
+          .drag()
+          .on("start", (e) => dragStart(e, "face"))
+          .on("drag", (e) => dragged(e, "face"))
+          .on("end", (e) => dragEnd(e, "face"))
+      );
   } else {
-    d3.selectAll(".faces").remove();
+    d3.selectAll(".faces").selectChildren().remove();
   }
 }
 
@@ -486,26 +484,23 @@ function drawStretch() {
   if (paused) return;
 
   if (PARAMS.showStretch) {
-    stretch = svg
-      .append("g")
-      .attr("class", "stretch")
+    stretch = stretchContainer
       .selectAll("line")
       .data(stretchLinks)
       .enter()
       .append("line")
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.stretchColor)
-      .attr("stroke-width", PARAMS.forceStrokeWidth);
-
-    stretch.call(
-      d3
-        .drag()
-        .on("start", (e) => dragStart(e, "link"))
-        .on("drag", (e) => dragged(e, "link"))
-        .on("end", (e) => dragEnd(e, "link"))
-    );
+      .attr("stroke-width", PARAMS.forceStrokeWidth)
+      .call(
+        d3
+          .drag()
+          .on("start", (e) => dragStart(e, "link"))
+          .on("drag", (e) => dragged(e, "link"))
+          .on("end", (e) => dragEnd(e, "link"))
+      );
   } else {
-    d3.selectAll(".stretch").remove();
+    d3.selectAll(".stretch").selectChildren().remove();
   }
 }
 
@@ -513,26 +508,23 @@ function drawShear() {
   if (paused) return;
 
   if (PARAMS.showShear) {
-    shear = svg
-      .append("g")
-      .attr("class", "shear")
+    shear = shearContainer
       .selectAll("line")
       .data(shearLinks)
       .enter()
       .append("line")
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.shearColor)
-      .attr("stroke-width", PARAMS.forceStrokeWidth);
-
-    shear.call(
-      d3
-        .drag()
-        .on("start", (e) => dragStart(e, "link"))
-        .on("drag", (e) => dragged(e, "link"))
-        .on("end", (e) => dragEnd(e, "link"))
-    );
+      .attr("stroke-width", PARAMS.forceStrokeWidth)
+      .call(
+        d3
+          .drag()
+          .on("start", (e) => dragStart(e, "link"))
+          .on("drag", (e) => dragged(e, "link"))
+          .on("end", (e) => dragEnd(e, "link"))
+      );
   } else {
-    d3.selectAll(".shear").remove();
+    d3.selectAll(".shear").selectChildren().remove();
   }
 }
 
@@ -540,26 +532,23 @@ function drawStrut() {
   if (paused) return;
 
   if (PARAMS.showStrut) {
-    strut = svg
-      .append("g")
-      .attr("class", "strut")
+    strut = strutContainer
       .selectAll("line")
       .data(strutLinks)
       .enter()
       .append("line")
       .attr("stroke-linecap", "round")
       .attr("stroke", PARAMS.strutColor)
-      .attr("stroke-width", PARAMS.forceStrokeWidth);
-
-    strut.call(
-      d3
-        .drag()
-        .on("start", (e) => dragStart(e, "link"))
-        .on("drag", (e) => dragged(e, "link"))
-        .on("end", (e) => dragEnd(e, "link"))
-    );
+      .attr("stroke-width", PARAMS.forceStrokeWidth)
+      .call(
+        d3
+          .drag()
+          .on("start", (e) => dragStart(e, "link"))
+          .on("drag", (e) => dragged(e, "link"))
+          .on("end", (e) => dragEnd(e, "link"))
+      );
   } else {
-    d3.selectAll(".strut").remove();
+    d3.selectAll(".strut").selectChildren().remove();
   }
 }
 
@@ -609,8 +598,26 @@ function ticked() {
 }
 
 /////////////////////////////////////////////////////////////////
-// DRAG EVENTS
+// INTERACTION EVENTS
 /////////////////////////////////////////////////////////////////
+
+function clicked(event, d) {
+  if (event.defaultPrevented) return; // dragged
+  let isFixed = d3.select(this).classed("fixed");
+  if (!isFixed) {
+    d.fx = d.x;
+    d.fy = d.y;
+    d.fixed = true;
+    d3.select(this).classed("fixed", true);
+  } else {
+    delete d.fx;
+    delete d.fy;
+    delete d.fixed;
+    d3.select(this).classed("fixed", false);
+  }
+
+  simulation.alpha(0.3).restart();
+}
 
 function dragStart(event, dragType) {
   // Reheat the simulation when drag starts
@@ -667,21 +674,30 @@ function dragEnd(event, dragType) {
   simulation.force("center", centerForce(0.05));
   let subj = event.subject;
 
+  // Only unfix vertices if they are not anchored
   if (dragType == "face") {
-    // Unfix all vertices
     subj.vertices.forEach((vertexID) => {
       const vert = vertices[vertexID];
-      vert.fx = null;
-      vert.fy = null;
+      if (!vert.fixed) {
+        vert.fx = null;
+        vert.fy = null;
+      }
     });
   } else if (dragType == "vertex") {
-    subj.fx = null;
-    subj.fy = null;
+    if (!subj.fixed) {
+      subj.fx = null;
+      subj.fy = null;
+    }
   } else if (dragType == "link") {
-    subj.source.fx = null;
-    subj.source.fy = null;
-    subj.target.fx = null;
-    subj.target.fy = null;
+    if (!subj.source.fixed) {
+      subj.source.fx = null;
+      subj.source.fy = null;
+    }
+
+    if (!subj.target.fixed) {
+      subj.target.fx = null;
+      subj.target.fy = null;
+    }
   }
 }
 
@@ -713,7 +729,13 @@ function cleanUp() {
     simulation.stop();
     simulation = null;
   }
-  svg.selectChildren().remove();
+
+  // clear out the containers
+  vertexContainer.selectChildren().remove();
+  faceContainer.selectChildren().remove();
+  stretchContainer.selectChildren().remove();
+  shearContainer.selectChildren().remove();
+  strutContainer.selectChildren().remove();
 }
 
 function runSimulation() {

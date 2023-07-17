@@ -13,4 +13,5 @@ live [here](twigg.gg/wabric)
 - [x] drag links
 - [x] save/load presets
 - [x] initial charge to help unfold
-- [ ] anchor vertices/faces
+- [x] anchor vertices/faces by clicking
+- [x] maintain stacking order

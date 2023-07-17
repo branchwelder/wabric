@@ -29,11 +29,11 @@ export default {
     enableCollision: false,
     iterations: 3,
   },
-  linkageThing: {
+  shittyLinkage: {
     width: 2,
     height: 3,
     enableStretch: true,
-    edge_length: 196.38,
+    edge_length: 100,
     K_STRETCH: 5,
     enableShear: false,
     shear_ratio: 0.5,
@@ -56,7 +56,7 @@ export default {
     showStrut: false,
     strutColor: "#b062a57c",
     forceStrokeWidth: 24,
-    enableCollision: true,
+    enableCollision: false,
     iterations: 3,
   },
   allForces: {
